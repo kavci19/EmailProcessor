@@ -3,8 +3,6 @@ import email
 import html2text
 import requests
 
-import postmates as pm
-
 
 
 host = 'imap.gmail.com'
@@ -272,12 +270,14 @@ if __name__ == "__main__":
             }
 
             response = requests.post(url_quote, data=data, auth=(api_key, ''))
+            print()
+            print('Quote response: ')
             print(response.json())
 
             if response.status_code == 200:
 
                 data = {
-                    'dropoff_address': '1178 Broadway, New York, NY, USA', #delivery_address
+                    'dropoff_address': delivery_address,
                     'dropoff_name': str(customer_name),
                     'dropoff_phone_number': str(customer_phone),
                     'manifest': 'Construction supplies',
@@ -288,8 +288,12 @@ if __name__ == "__main__":
 
                 }
 
+                print()
+                print('Data sent to Postmates Delivery API: ')
                 print(data)
                 response = requests.post(url_delivery, data=data, auth=(api_key, ''))
+                print()
+                print('Delivery response: ')
                 print(response.content)
 
 
