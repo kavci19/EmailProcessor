@@ -2,14 +2,17 @@ import imaplib
 import email
 import html2text
 import requests
+import base64
+import urllib.parse
+from urllib.parse import urlencode
 
 
 
 host = 'imap.gmail.com'
-username = 'toolerproducts@gmail.com'
-password = 'tooler12321'
-customer_id = 'cus_MpFT17mezeU3nk'
-api_key = 'f443e89b-a8ed-49dd-bfdb-054390a33bf5'
+username = '' #enter email address to parse emails from
+password = '' #password for email address
+customer_id = 'cus_MnJwQGN8m9dHIF' #enter customer id and api key for commercial use (this one is just for testing)
+api_key = 'd3426844-a56a-4e37-bba4-e08b5e945342'
 url_quote = 'https://api.postmates.com/' + 'v1/customers/' + customer_id + '/delivery_quotes'
 url_delivery = 'https://api.postmates.com/' + 'v1/customers/' + customer_id + '/deliveries'
 
@@ -97,6 +100,7 @@ def find_order_pickup_address(content):
     address = ''
     hs = ''
     mobile = ''
+    mobileNos = ''
     for i in range(len(content)):
         if 'Delivery' in content[i] and 'From' in content[i+1]:
             i+=2
@@ -105,7 +109,8 @@ def find_order_pickup_address(content):
                 i+=1
 
             if 'Mobile' in content[i] and 'No' in content[i+1]:
-                mobile = content[i+2]
+                mobileNos = content[i+2].split(',')
+                mobile = mobileNos[0]
 
             if len(address) > 1:
                 address = address[:-2]
@@ -204,9 +209,9 @@ def build_manifest_items(product_list, quantity_list, size_list):
     manifest = []
     for i in range(len(product_list)):
         dict = {}
-        dict['name'] = product_list[i]
-        dict['quantity'] = int(quantity_list[i])
-        dict['size'] = size_list[i]
+        dict["name"] = product_list[i]
+        dict["quantity"] = int(quantity_list[i])
+        dict["size"] = size_list[i]
         manifest.append(dict)
     return manifest
 
@@ -217,87 +222,110 @@ if __name__ == "__main__":
     isHtml = False
 
     for email in my_inbox:
-        if not 'You have an order from Tooler' in email['subject']:
-            continue
-        print('Email ' + str(email_num))
-        email_num+=1
-        if 'body' in email:
-            content = email['body'].split()
-        else:
-            content = email['html_body']
-            text = html2text.html2text(content)
-            content = text.split()
-            isHtml = True
+        try:
+            if not 'You have an order from Tooler' in email['subject']:
+                continue
+            print('Email ' + str(email_num))
+            email_num+=1
+            if 'body' in email:
+                content = email['body'].split()
+            else:
+                content = email['html_body']
+                text = html2text.html2text(content)
+                content = text.split()
+                isHtml = True
 
-        delivery_address = str(find_order_delivery_address(content))
-        sku = find_order_sku(content)
-        customer_name, customer_phone = find_order_customer_name_phone(content)
-        order_id = find_order_id(content)
-        order_time = find_order_time(content)
-        quantities = find_order_quantities(content)
-        product_sizes = determine_product_size(sku)
-        product_names = find_product_names(content, isHtml)
-        pickup_address, hardware_store, hs_mobile = find_order_pickup_address(content)
-        tip = find_tip(content, isHtml)
-        pickup_time = find_pickup_time(content)
-        manifest = build_manifest_items(product_names, quantities, product_sizes)
-
-        print('Order ID: ' + order_id )
-        print('Time: ' + order_time)
-        print('SKU: ' + str(sku))
-        print('Product Names: ' + str(product_names))
-        print('Quantities: ' + str(quantities))
-        print('Sizes: ' + str(product_sizes))
-        print('Delivery Address: ' + delivery_address)
-        print('Customer Name: ' + str(customer_name))
-        print('Customer Phone: ' + str(customer_phone))
-        print('Pickup Address: ' + str(pickup_address))
-        print('Hardware Store: ' + hardware_store)
-        print('Hardware Store Mobile: ' + hs_mobile)
-        print('Tip: ' + tip)
-        print('Pickup Time: ' + pickup_time)
-
-        if len(delivery_address) == 0:
-            print('Product is pickup only. No request made to Postmates.')
-
-        else:
+            delivery_address = str(find_order_delivery_address(content))
+            sku = find_order_sku(content)
+            customer_name, customer_phone = find_order_customer_name_phone(content)
+            order_id = find_order_id(content)
+            order_time = find_order_time(content)
+            quantities = find_order_quantities(content)
+            product_sizes = determine_product_size(sku)
+            product_names = find_product_names(content, isHtml)
+            pickup_address, hardware_store, hs_mobile = find_order_pickup_address(content)
+            tip = find_tip(content, isHtml)
+            pickup_time = find_pickup_time(content)
+            manifest = build_manifest_items(product_names, quantities, product_sizes)
+            usrPass = api_key + ':'
+            data_bytes = usrPass.encode("utf-8")
+            b64Val = base64.b64encode(data_bytes).decode('utf-8')
 
 
+            print('Order ID: ' + order_id )
+            print('Time: ' + order_time)
+            print('SKU: ' + str(sku))
+            print('Product Names: ' + str(product_names))
+            print('Quantities: ' + str(quantities))
+            print('Sizes: ' + str(product_sizes))
+            print('Delivery Address: ' + delivery_address)
+            print('Customer Name: ' + str(customer_name))
+            print('Customer Phone: ' + str(customer_phone))
+            print('Pickup Address: ' + str(pickup_address))
+            print('Hardware Store: ' + hardware_store)
+            print('Hardware Store Mobile: ' + hs_mobile)
+            print('Tip: ' + tip)
+            print('Pickup Time: ' + pickup_time)
 
-            data = {
-                'dropoff_address': '1178 Broadway, New York, NY, USA',
-                'pickup_address': pickup_address
-            }
+            if len(delivery_address) == 0:
+                print('Product is pickup only. No request made to Postmates.')
 
-            response = requests.post(url_quote, data=data, auth=(api_key, ''))
-            print()
-            print('Quote response: ')
-            print(response.json())
+            else:
 
-            if response.status_code == 200:
+
 
                 data = {
-                    'dropoff_address': delivery_address,
-                    'dropoff_name': str(customer_name),
-                    'dropoff_phone_number': str(customer_phone),
-                    'manifest': 'Construction supplies',
-                    'manifest_items': manifest,
-                    'pickup_address': str(pickup_address),
-                    'pickup_name': str(hardware_store),
-                    'pickup_phone_number': str(hs_mobile),
-
+                    'dropoff_address': '1178 Broadway, New York, NY, USA',
+                    'pickup_address': pickup_address
                 }
 
+                response = requests.post(url_quote, data=data, auth=(api_key, ''))
                 print()
-                print('Data sent to Postmates Delivery API: ')
+                print('Data sent to Postmates Quote API: ')
                 print(data)
-                response = requests.post(url_delivery, data=data, auth=(api_key, ''))
                 print()
-                print('Delivery response: ')
-                print(response.content)
+                print('Quote response: ')
+                print(response.json())
+
+                if response.status_code == 200:
+
+                    headers = {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Authorization': 'Basic ' + b64Val
+                    }
+
+                    manifest = str(manifest)
+                    manifest = manifest.replace("'",'"')
+
+                    #check if phone has 10 digits, if not use tooler phone
+                    customer_phone = '+19175959184'
+
+                    data = {
+                        'dropoff_address': delivery_address,
+                        'dropoff_name': str(customer_name),
+                        'dropoff_phone_number': str(customer_phone),
+                        'manifest': 'Construction supplies',
+                        'pickup_address': str(pickup_address),
+                        'pickup_name': str(hardware_store),
+                        'pickup_phone_number': str(hs_mobile),
+                        'manifest_items': manifest,
+                    }
+
+                    payload = urllib.parse.urlencode(data, quote_via=urllib.parse.quote)
+
+                    print()
+                    print('Data sent to Postmates Delivery API: ')
+                    print(data)
+                    response = requests.post(url_delivery, data=payload, headers=headers)
+                    print()
+                    print('Delivery response: ')
+                    print(response.content)
 
 
 
-        print('\n\n\n')
+            print('\n\n\n')
+        except:
+            print('Error parsing email')
+            continue
 
 # print(search_data)
